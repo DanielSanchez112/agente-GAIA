@@ -1,8 +1,11 @@
-const { getGeminiResponse } = require('./geminiController');
-const { sendMessage } = require('../services/whatsappService');
+const { getConversationState } = require('./firestoreController');
+const addPlantFlow = require('../flows/addPlantFlow');
+const viewGardenFlow = require('../flows/viewGardenFlow');
+const generalQueryFlow = require('../flows/generalQueryFlow');
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
+// La función de verificación no cambia
 const handleVerification = (req, res) => {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -16,23 +19,44 @@ const handleVerification = (req, res) => {
 };
 
 const handleMessage = async (req, res) => {
-    const body = req.body;
-    console.log("Mensaje recibido:", JSON.stringify(body, null, 2));
+    const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!message || !message.text) return res.sendStatus(200);
 
-    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const from = message.from;
+    const userMessage = message.text.body;
 
-    if (message && message.text) {
-        const from = message.from;
-        const userMessage = message.text.body;
+    try {
+        const currentState = await getConversationState(from);
 
-        try {
-            const aiResponse = await getGeminiResponse(userMessage);
-            await sendMessage(from, aiResponse);
-        } catch (error) {
-            console.error("Error en el flujo principal:", error);
-            await sendMessage(from, "Lo siento, tuve un problema interno. El equipo técnico ya fue notificado.");
+        if (currentState) {
+            // --- ¡NUEVA LÓGICA DE CANCELACIÓN! ---
+            // Primero, revisamos si el usuario quiere cancelar.
+            if (userMessage.toLowerCase() === 'cancelar') {
+                await clearConversationState(from);
+                await sendMessage(from, "De acuerdo, he cancelado el proceso.");
+                return res.sendStatus(200); // Salimos para no procesar nada más.
+            }
+
+            // Si no canceló, continuamos con el flujo normal.
+            if (currentState.state === 'AWAITING_PLANT_AGE') {
+                await addPlantFlow.handleAgeResponse(from, userMessage, currentState.context);
+            }
+            // Aquí irían otros 'else if' para otros estados de conversación.
+
+        } else {
+            // Si no hay conversación, procesamos como un nuevo comando.
+            if (userMessage.toLowerCase().startsWith('agregar ')) {
+                await addPlantFlow.start(from, userMessage);
+            } else if (userMessage.toLowerCase() === 'mi jardín') {
+                await viewGardenFlow.handle(from);
+            } else {
+                await generalQueryFlow.handle(from, userMessage);
+            }
         }
+    } catch (error) {
+        console.error("Error fatal en handleMessage:", error);
     }
+
     res.sendStatus(200);
 };
 
