@@ -36,6 +36,7 @@ const handleMessage = async (req, res) => {
 
     try {
         if (message.text) {
+            await addMessageToHistory(from, 'user', message.text.body);
             await processTextMessage(from, message.text.body);
         } else if (message.audio) {
             await processAudioMessage(from, message.audio.id);
@@ -128,8 +129,6 @@ const processLocationMessage = async (from, location) => {
 const processImageMessage = async (from, imageId) => {
     console.log(`📸 Imagen recibida`);
 
-    await addMessageToHistory(from, 'user', userMessage);
-
     try {
         await sendMessage(from, "🔍 Analizando tu imagen...");
         const imageData = await downloadAndEncodeImage(imageId);
@@ -148,8 +147,6 @@ const processImageMessage = async (from, imageId) => {
 // --- Función para Procesar Mensajes de AUDIO ---
 const processAudioMessage = async (from, audioId) => {
     console.log(`🎙️ Audio recibido`);
-
-    await addMessageToHistory(from, 'user', userMessage);
 
     try {
         await sendMessage(from, "🎙️ Transcribiendo tu nota de voz...");

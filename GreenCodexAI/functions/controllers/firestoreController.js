@@ -125,8 +125,8 @@ const addMessageToHistory = async (userId, role, text) => {
     const snapshot = await historyRef.get();
     const messageCount = snapshot.size;
 
-    // 3. Si hay más de 50, borramos el más antiguo
-    if (messageCount > 50) {
+    // 3. Si hay más de 15, borramos el más antiguo
+    if (messageCount > 15) {
         // Creamos una consulta para encontrar el mensaje más antiguo (ordenado por fecha, el primero)
         const oldestMessageQuery = historyRef.orderBy('timestamp', 'asc').limit(1);
         const oldestSnapshot = await oldestMessageQuery.get();

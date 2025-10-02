@@ -1,17 +1,25 @@
 // flows/generalQueryFlow.js
 const { sendMessage } = require('../services/whatsappService');
 const { getGeminiResponse } = require('../controllers/geminiController');
-// ¡Nuevas importaciones!
-const { getConversationHistory } = require('../controllers/firestoreController');
+const { addMessageToHistory } = require('../controllers/firestoreController');
 
 const handle = async (from, userMessage) => {
-    // 1. Recuperamos el historial de la conversación
-    const history = await getConversationHistory(from);
-    
-    // 2. Le pasamos el historial y la nueva pregunta a Gemini
-    const aiResponse = await getGeminiResponse(userMessage, history);
-    
-    await sendMessage(from, aiResponse);
+    try {
+        console.log(`💭 Consulta general de ${from}: ${userMessage}`);
+        
+        // Obtener respuesta de Gemini con contexto de usuario
+        const aiResponse = await getGeminiResponse(userMessage, from);
+        
+        // Enviar respuesta al usuario
+        await sendMessage(from, aiResponse);
+
+        // Guardar respuesta de la AI en el historial
+        await addMessageToHistory(from, 'ai', aiResponse);
+        
+    } catch (error) {
+        console.error("❌ Error en generalQueryFlow:", error);
+        await sendMessage(from, "❌ Lo siento, no pude procesar tu consulta en este momento.");
+    }
 };
 
 module.exports = { handle };
