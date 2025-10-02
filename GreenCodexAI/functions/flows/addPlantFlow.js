@@ -47,7 +47,15 @@ const start = async (from, userMessage) => {
  */
 const handleAgeResponse = async (from, userMessage, context) => {
     // 1. Usar IA para validar y convertir la respuesta en una fecha
-    const datePrompt = `Considerando que la fecha actual es ${new Date().toISOString().split('T')[0]}, convierte la frase de tiempo relativo "${userMessage}" a una fecha en formato YYYY-MM-DD. Si no es una referencia de tiempo válida, responde solo con la palabra 'INVALIDO'. en caso de que el mensaje sea parecido a que aun no ah sido plantada usa el dia de hoy como fecha de siembra.`;
+    const datePrompt = `Considerando que la fecha actual es ${new Date().toISOString().split('T')[0]},
+    convierte la frase de tiempo relativo "${userMessage}" a una fecha en formato YYYY-MM-DD. 
+    Si no es una referencia de tiempo válida, responde solo con la palabra 'INVALIDO'. 
+    en caso de que el mensaje sea parecido a "aun no ah sido plantada" o
+    "no la e plantado" usa el dia de hoy como fecha de siembra. 
+    ademas ten encuenta que la fecha no puede ser futura si el usuario dice 6 meses
+    eso quiere decir que la fecha de siembra no puede ser después de 6 meses a partir de hoy sino
+    6 meses atrás.`;
+    
     const dateResponse = await getGeminiResponse(datePrompt);
 
     // Expresión regular para verificar si la respuesta es una fecha válida
