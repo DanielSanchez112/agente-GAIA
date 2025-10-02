@@ -79,7 +79,7 @@ const processTextMessage = async (from, userMessage) => {
             await calendarFlow.start(from, userMessage);
         } else if (userMessage.toLowerCase().startsWith('eliminar ')) {
             await deletePlantFlow.handle(from, userMessage);
-        } else if (userMessage.toLowerCase() === 'cambiar ubicacion') {
+        } else if (userMessage.toLowerCase() === 'cambiar ubicación') {
             await changeLocationFlow.start(from);
         } else if (['ayuda', 'help', 'comandos', '/ayuda'].includes(userMessage.toLowerCase())) {
             await helpFlow.handle(from);

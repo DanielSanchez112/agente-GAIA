@@ -39,7 +39,12 @@ const start = async (from, userMessage) => {
     // 5. Finalmente, guardamos el estado y enviamos la pregunta de la fecha.
     await setConversationState(from, 'AWAITING_PLANT_AGE', { plantName: finalPlantName });
     // Integramos el mensaje de notificación aquí.
-    await sendMessage(from, `${notificationMessage}Ahora dime, ¿cuándo la plantaste? (Ej: 'hoy', 'hace 2 semanas')`);
+    await sendMessage(from, `${notificationMessage}Ahora dime, ¿cuándo la plantaste o cuándo planeas plantarla? 
+
+Puedes usar:
+• Fechas pasadas: "hace 2 meses", "el 15 de mayo"  
+• Fechas futuras: "en 3 semanas", "el próximo mes"
+• Fechas actuales: "hoy", "ayer"`);
 };
 
 /**
@@ -48,14 +53,21 @@ const start = async (from, userMessage) => {
 const handleAgeResponse = async (from, userMessage, context) => {
     // 1. Usar IA para validar y convertir la respuesta en una fecha
     const datePrompt = `Considerando que la fecha actual es ${new Date().toISOString().split('T')[0]},
-    convierte la frase de tiempo relativo "${userMessage}" a una fecha en formato YYYY-MM-DD. 
-    Si no es una referencia de tiempo válida, responde solo con la palabra 'INVALIDO'. 
-    en caso de que el mensaje sea parecido a "aun no ah sido plantada" o
-    "no la e plantado" usa el dia de hoy como fecha de siembra. 
-    ademas ten encuenta que la fecha no puede ser futura si el usuario dice 6 meses
-    eso quiere decir que la fecha de siembra no puede ser después de 6 meses a partir de hoy sino
-    6 meses atrás.`;
+    convierte la frase del usuario "${userMessage}" a una fecha en formato YYYY-MM-DD. 
+
+    IMPORTANTE: La fecha puede ser:
+    - PASADA: "hace 6 meses", "el 5 de mayo pasado", "hace 10 días"
+    - PRESENTE: "hoy", "ayer", "esta semana"
+    - FUTURA: "en 2 semanas", "el próximo mes", "en diciembre"
+
+    Si la frase NO se refiere a una fecha o tiempo válido, responde solo con 'INVALIDO'.
+    Si SÍ es una fecha válida, responde ÚNICAMENTE con la fecha en formato YYYY-MM-DD.
     
+    Ejemplos:
+    - "hace 3 meses" → 2025-07-01
+    - "en 2 semanas" → 2025-10-15
+    - "el 15 de enero" → 2026-01-15 (si es futuro) o 2025-01-15 (si es pasado, según contexto)`;
+
     const dateResponse = await getGeminiResponse(datePrompt);
 
     // Expresión regular para verificar si la respuesta es una fecha válida
@@ -63,19 +75,44 @@ const handleAgeResponse = async (from, userMessage, context) => {
 
     if (isValidDate) {
         // 2. Si la fecha es válida, guardar en la base de datos
+        const plantingDate = new Date(dateResponse);
+        const today = new Date();
+        
         const plantData = {
             name: context.plantName,
-            plantingDate: new Date(dateResponse),
+            plantingDate: plantingDate,
         };
         await addUserPlant(from, plantData);
 
-        await sendMessage(from, `¡Listo! He registrado tu "${context.plantName}" con fecha de siembra del ${new Date(dateResponse).toLocaleDateString('es-ES')}.`);
+        // Mensaje diferente según si es pasado, presente o futuro
+        const dateStr = plantingDate.toLocaleDateString('es-ES');
+        let confirmMessage;
+        
+        if (plantingDate > today) {
+            confirmMessage = `¡Perfecto! He programado tu *${context.plantName}* para plantarse el *${dateStr}*. 🗓️
+
+Te recordaré cuando sea el momento ideal para plantarla. 🌱`;
+        } else if (plantingDate.toDateString() === today.toDateString()) {
+            confirmMessage = `¡Excelente! He registrado tu *${context.plantName}* plantada hoy (${dateStr}). 🌱
+
+¡Que comience la aventura del crecimiento! 🌿`;
+        } else {
+            confirmMessage = `¡Listo! He registrado tu *${context.plantName}* con fecha de siembra del *${dateStr}*. 🌱
+
+Puedes revisar su calendario de crecimiento cuando quieras. 📅`;
+        }
+        
+        await sendMessage(from, confirmMessage);
         // ¡Éxito! Limpiamos la conversación.
         await clearConversationState(from);
     } else {
         // 3. Si la fecha no es válida, pedir que lo intente de nuevo.
         // NO limpiamos el estado, manteniendo al usuario en el bucle.
-        await sendMessage(from, "No entendí muy bien la fecha. Por favor, intenta de nuevo (ej: 'ayer', 'hace 3 días') o escribe *cancelar* para salir.");
+        await sendMessage(from, `No entendí la fecha. Intenta de nuevo:
+
+• Fechas pasadas: "hace 2 meses", "el 15 de mayo"  
+• Fechas futuras: "en 3 semanas", "el próximo mes"
+• Fechas actuales: "hoy", "ayer"`);
     }
 };
 

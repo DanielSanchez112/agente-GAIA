@@ -30,6 +30,18 @@ const start = async (from, userMessage) => {
         return;
     }
 
+    // Verificar si la planta tiene fecha futura antes de pedir ubicación
+    const plantedDate = plantData.plantingDate.toDate();
+    const today = new Date();
+    
+    if (plantedDate > today) {
+        const futureDateStr = plantedDate.toLocaleDateString('es-ES');
+        await sendMessage(from, `🗓️ Tu *${plantData.name}* está programada para plantarse el *${futureDateStr}*.
+
+Como aún no ha sido plantada, no puedo revisar un calendario de crecimiento. ¡Regresa después de plantarla! 🌱`);
+        return;
+    }
+
     let userLocation = await getUserLocation(from);
     if (!userLocation) {
         // Si no tenemos la ubicación, la pedimos y guardamos el estado.
@@ -46,11 +58,23 @@ const start = async (from, userMessage) => {
 };
 
 const generateCalendar = async (from, plantData, location) => {
+    // Verificar si la planta fue plantada en una fecha futura
+    const plantedDate = plantData.plantingDate.toDate();
+    const today = new Date();
+    
+    // Si la fecha de plantación es futura, no podemos generar un calendario
+    if (plantedDate > today) {
+        const futureDateStr = plantedDate.toLocaleDateString('es-ES');
+        await sendMessage(from, `🗓️ Tu *${plantData.name}* está programada para plantarse el *${futureDateStr}*.
+
+Como aún no ha sido plantada, no puedo revisar un calendario de crecimiento. ¡Regresa después de plantarla! 🌱`);
+        return;
+    }
+
     await sendMessage(from, `🗓️ Revisando calendario para tu *${plantData.name}* en *${location}*...`);
 
     const weather = await getWeather(location);
-    const plantedDate = plantData.plantingDate.toDate();
-    const daysPlanted = Math.floor((new Date() - plantedDate) / (1000 * 60 * 60 * 24));
+    const daysPlanted = Math.floor((today - plantedDate) / (1000 * 60 * 60 * 24));
 
     const prompt = `
         Para una planta de "${plantData.name}" sembrada hace ${daysPlanted} días en ${location}, donde el clima actual es "${weather}":

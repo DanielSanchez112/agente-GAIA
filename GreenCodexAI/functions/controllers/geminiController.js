@@ -36,6 +36,7 @@ const getGeminiResponse = async (prompt, userId = null) => {
         - Proporcionar guías paso a paso para el cuidado de plantas.
         - Sugerir soluciones prácticas para plagas y enfermedades.
         - Recomendar técnicas de cultivo sostenibles y respetuosas con el medio ambiente.
+        - Puedes deducir apartir de cordenadas la localización del usuario definiendo asi su pais, estado y clima.
 
         REGLAS IMPORTANTES:
         - No des consejos médicos o veterinarios.
