@@ -33,6 +33,27 @@ const sendMessage = async (to, text) => {
     }
 };
 
+const sendImageByUrl = async (to, imageUrl, caption) => {
+    const url = `${GRAPH_API_URL}/${PHONE_NUMBER_ID}/messages`;
+    const data = {
+        messaging_product: "whatsapp",
+        to: to,
+        type: "image",
+        image: {
+            link: imageUrl,
+            caption: caption
+        }
+    };
+    const headers = { "Authorization": `Bearer ${WHATSAPP_TOKEN}` };
+
+    try {
+        await axios.post(url, data, { headers });
+        console.log(`✅ Imagen enviada a ${to}`);
+    } catch (error) {
+        console.error(`❌ Error enviando imagen a ${to}:`, error.response?.data);
+    }
+};
+
 const getImageUrl = async (imageId) => {
     try {
         const url = `https://graph.facebook.com/v19.0/${imageId}`;
@@ -129,5 +150,6 @@ module.exports = {
     downloadImageAsBase64,
     downloadAndEncodeImage,
     getMediaUrl,          
-    downloadMediaAsBase64
+    downloadMediaAsBase64,
+    sendImageByUrl
 };

@@ -58,6 +58,44 @@ const deleteUserPlant = async (userId, plantName) => {
     }
 };
 
+const findPlantsByBaseName = async (userId, baseName) => {
+    const plantsRef = db.collection('gardens').doc(userId).collection('plants');
+    // Consulta para encontrar documentos cuyo nombre empiece con baseName
+    const querySnapshot = await plantsRef
+        .where('name', '>=', baseName)
+        .where('name', '<', baseName + '\uf8ff')
+        .get();
+
+    if (querySnapshot.empty) {
+        return [];
+    }
+
+    return querySnapshot.docs.map(doc => doc.data().name);
+};
+
+const saveUserLocation = async (userId, city) => {
+    // Usamos 'gardens' como la colección principal del usuario para guardar su perfil.
+    const userRef = db.collection('gardens').doc(userId);
+    await userRef.set({ location: city }, { merge: true }); // 'merge: true' para no borrar otros datos.
+};
+
+const getUserLocation = async (userId) => {
+    const userRef = db.collection('gardens').doc(userId);
+    const doc = await userRef.get();
+    return doc.exists && doc.data().location ? doc.data().location : null;
+};
+
+const getPlantByName = async (userId, plantName) => {
+    const plantsRef = db.collection('gardens').doc(userId).collection('plants');
+    // Hacemos una búsqueda insensible a mayúsculas/minúsculas.
+    const snapshot = await plantsRef.where('name', '==', plantName).limit(1).get();
+
+    if (snapshot.empty) {
+        return null;
+    }
+    return snapshot.docs[0].data();
+};
+
 const setConversationState = async (userId, state, context = {}) => {
     const stateRef = db.collection('conversations').doc(userId);
     await stateRef.set({ state, context, updatedAt: new Date() });
@@ -79,5 +117,9 @@ module.exports = {
     setConversationState,
     getConversationState,
     clearConversationState,
-    deleteUserPlant
+    deleteUserPlant,
+    saveUserLocation,
+    getUserLocation,
+    getPlantByName,
+    findPlantsByBaseName
 };

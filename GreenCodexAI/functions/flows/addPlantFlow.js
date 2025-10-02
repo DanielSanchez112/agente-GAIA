@@ -1,29 +1,45 @@
 const { sendMessage } = require('../services/whatsappService');
-const { setConversationState, addUserPlant, clearConversationState } = require('../controllers/firestoreController');
+const { setConversationState, addUserPlant, clearConversationState, findPlantsByBaseName  } = require('../controllers/firestoreController');
 const { getGeminiResponse } = require('../controllers/geminiController');
 
 /**
  * Inicia el flujo para agregar una planta. Valida el nombre y hace la pregunta sobre la edad.
  */
 const start = async (from, userMessage) => {
+    // 1. Extraemos el nombre que nos dio el usuario.
     const plantName = userMessage.substring(8).trim();
     if (!plantName) {
         await sendMessage(from, "Por favor, dime qué planta quieres agregar. Ejemplo: `agregar tomate`");
         return;
     }
 
-    // 1. Validar con IA si es una planta real
+    // 2. Validamos con la IA PRIMERO para saber si es una planta.
     const validationPrompt = `¿El texto '${plantName}' se refiere a una planta, fruta, vegetal, árbol o flor? Responde únicamente 'SÍ' o 'NO'.`;
     const validationResponse = await getGeminiResponse(validationPrompt);
 
-    if (validationResponse.trim().toUpperCase().includes('SÍ')) {
-        // 2. Si es una planta, guardar estado y preguntar la fecha
-        await setConversationState(from, 'AWAITING_PLANT_AGE', { plantName });
-        await sendMessage(from, `Entendido. ¿Cuándo lo plantaste? (Ej: 'hoy', 'hace 2 semanas', 'el mes pasado')`);
-    } else {
-        // 3. Si no es una planta, notificar al usuario
+    // 3. Si NO es una planta, nos detenemos aquí.
+    if (validationResponse.trim().toUpperCase().includes('NO')) {
         await sendMessage(from, `Lo siento, "${plantName}" no parece ser una planta. Inténtalo de nuevo.`);
+        return; // Detenemos la ejecución
     }
+
+    // 4. Si SÍ es una planta, AHORA buscamos duplicados.
+    //    Usamos 'plantName', la variable que definimos al principio.
+    const existingPlants = await findPlantsByBaseName(from, plantName);
+    let finalPlantName = plantName;
+    let notificationMessage = "";
+
+    if (existingPlants.length > 0) {
+        // Si ya existen, calculamos el siguiente nombre.
+        const nextNumber = existingPlants.length + 1;
+        finalPlantName = `${plantName} ${nextNumber}`;
+        notificationMessage = `Veo que ya tienes una planta: ${plantName}, así que registraré esta como *${finalPlantName}* para evitar confusiones. `;
+    }
+
+    // 5. Finalmente, guardamos el estado y enviamos la pregunta de la fecha.
+    await setConversationState(from, 'AWAITING_PLANT_AGE', { plantName: finalPlantName });
+    // Integramos el mensaje de notificación aquí.
+    await sendMessage(from, `${notificationMessage}Ahora dime, ¿cuándo la plantaste? (Ej: 'hoy', 'hace 2 semanas')`);
 };
 
 /**

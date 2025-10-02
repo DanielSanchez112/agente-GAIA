@@ -2,7 +2,7 @@ const { sendMessage } = require('../services/whatsappService');
 const { deleteUserPlant } = require('../controllers/firestoreController');
 
 const handle = async (from, userMessage) => {
-    const plantName = userMessage.substring(9).trim(); // Extrae el nombre de la planta después de "eliminar "
+    const plantName = userMessage.substring(9).trim();
     if (!plantName) {
         await sendMessage(from, "Por favor, dime qué planta quieres eliminar. Ejemplo: `eliminar tomate`");
         return;

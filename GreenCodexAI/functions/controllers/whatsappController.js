@@ -1,11 +1,16 @@
 // --- Importaciones ---
-const { getConversationState, clearConversationState } = require('./firestoreController');
+const { getConversationState, clearConversationState, saveUserLocation } = require('./firestoreController');
 const { identifyPlant } = require('./geminiController');
 const { sendMessage, downloadAndEncodeImage, getMediaUrl, downloadMediaAsBase64 } = require('../services/whatsappService');
-const { transcribeAudio } = require('./speechController'); // ¡Nueva importación!
+const { transcribeAudio } = require('./speechController');
+const deletePlantFlow = require('../flows/deletePlantFlow');
 const addPlantFlow = require('../flows/addPlantFlow');
 const viewGardenFlow = require('../flows/viewGardenFlow');
+const calendarFlow = require('../flows/calendarFlow');
 const generalQueryFlow = require('../flows/generalQueryFlow');
+const changeLocationFlow = require('../flows/changeLocationFlow');
+const helpFlow = require('../flows/helpFlow');
+const plantingGuideFlow = require('../flows/plantingGuideFlow');
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
@@ -36,7 +41,9 @@ const handleMessage = async (req, res) => {
             await processAudioMessage(from, message.audio.id);
         } else if (message.image) {
             await processImageMessage(from, message.image.id);
-        } 
+        } else if (message.location) {
+            await processLocationMessage(from, message.location);
+        }
     } catch (error) {
         console.error("❌ Error en handleMessage:", error);
         await sendMessage(from, "❌ Lo siento, ocurrió un error inesperado.");
@@ -53,23 +60,65 @@ const processTextMessage = async (from, userMessage) => {
         if (userMessage.toLowerCase() === 'cancelar') {
             await clearConversationState(from);
             await sendMessage(from, "✅ Proceso cancelado.");
-            return;
-        }
-        if (currentState.state === 'AWAITING_PLANT_AGE') {
+        } else if (currentState.state === 'AWAITING_PLANT_AGE') {
             await addPlantFlow.handleAgeResponse(from, userMessage, currentState.context);
+        }
+        // Agregamos un 'else' por si el usuario escribe texto cuando esperamos ubicación
+        else if (currentState.state === 'AWAITING_LOCATION_FOR_CALENDAR') {
+            await sendMessage(from, "Por favor, comparte tu ubicación usando la función de WhatsApp para continuar.");
         }
     } else {
         if (userMessage.toLowerCase().startsWith('agregar ')) {
-                await addPlantFlow.start(from, userMessage);
-            } else if (userMessage.toLowerCase() === 'mi jardín') {
-                await viewGardenFlow.handle(from);
-            } else if (userMessage.toLowerCase() === 'calendario') {
-                await calendarFlow.handle(from);
-            } else if (userMessage.toLowerCase().startsWith('eliminar ')) {
-                await deletePlantFlow.handle(from, userMessage);
-            } else {
-                await generalQueryFlow.handle(from, userMessage);
-            }
+            await addPlantFlow.start(from, userMessage);
+        } else if (userMessage.toLowerCase() === 'mi jardín') {
+            await viewGardenFlow.handle(from);
+        } else if (userMessage.toLowerCase().startsWith('calendario ')) {
+            await calendarFlow.start(from, userMessage);
+        } else if (userMessage.toLowerCase().startsWith('eliminar ')) {
+            await deletePlantFlow.handle(from, userMessage);
+        } else if (userMessage.toLowerCase() === 'cambiar ubicacion') {
+            await changeLocationFlow.start(from);
+        } else if (['ayuda', 'help', 'comandos', '/ayuda'].includes(userMessage.toLowerCase())) {
+            await helpFlow.handle(from);
+        } else if (userMessage.startsWith('como plantar ')) {
+            await plantingGuideFlow.handle(from, userMessage);
+        } else {
+            await generalQueryFlow.handle(from, userMessage);
+        }
+    }
+};
+
+// --- Función para Procesar Mensajes de UBICACIÓN ---
+const processLocationMessage = async (from, location) => {
+    console.log(`📍 Ubicación recibida de ${from}`);
+    const currentState = await getConversationState(from);
+
+    if (currentState) {
+        // Si la estábamos esperando para el calendario...
+        if (currentState.state === 'AWAITING_LOCATION_FOR_CALENDAR') {
+            const { latitude, longitude } = location;
+            // Reutilizamos la función que convierte coordenadas a ciudad del calendarFlow
+            const city = await calendarFlow.getCityFromCoordinates(latitude, longitude);
+            
+            await saveUserLocation(from, city);
+            await clearConversationState(from);
+            
+            await sendMessage(from, `✅ Ubicación guardada como: ${city}.`);
+            // Continuamos con el flujo del calendario
+            await calendarFlow.start(from, `calendario ${currentState.context.plantName}`);
+
+        // Si la estábamos esperando para actualizarla...
+        } else if (currentState.state === 'AWAITING_NEW_LOCATION') {
+            const { latitude, longitude } = location;
+            const city = await calendarFlow.getCityFromCoordinates(latitude, longitude);
+            
+            await saveUserLocation(from, city);
+            await clearConversationState(from);
+            
+            await sendMessage(from, `✅ ¡Perfecto! He actualizado tu ubicación a: *${city}*`);
+        }
+    } else {
+        await sendMessage(from, "Gracias por tu ubicación, pero no estaba esperando una en este momento.");
     }
 };
 
