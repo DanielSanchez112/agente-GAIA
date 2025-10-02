@@ -12,11 +12,7 @@ const genAI = new GoogleGenAI({
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
-
-// En tu archivo controllers/geminiController.js
-
-// ... (el resto de tus importaciones y configuración de genAI) ...
-
+// Función para obtener respuesta de Gemini con o sin contexto
 const getGeminiResponse = async (prompt, userId = null) => {
     try {
         const systemInstruction = 
@@ -129,7 +125,7 @@ const getGeminiResponse = async (prompt, userId = null) => {
     }
 };
 
-// ... (el resto de tus funciones y exportaciones) ...
+// Función para identificar planta a partir de imagen
 const identifyPlant = async (imageBase64, mimeType = 'image/jpeg') => {
     try {
         console.log(`Identificando planta en imagen con mimeType: ${mimeType}`);

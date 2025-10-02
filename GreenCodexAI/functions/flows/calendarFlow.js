@@ -16,7 +16,7 @@ const getCityFromCoordinates = async (latitude, longitude) => {
     return await getGeminiResponse(prompt);
 };
 
-
+// Flujo para manejar el calendario de crecimiento de una planta
 const start = async (from, userMessage) => {
     const plantName = userMessage.substring(11).trim();
     if (!plantName) {
@@ -57,6 +57,7 @@ Como aún no ha sido plantada, no puedo revisar un calendario de crecimiento. ¡
     }
 };
 
+// Función para generar y enviar el calendario de crecimiento
 const generateCalendar = async (from, plantData, location) => {
     // Verificar si la planta fue plantada en una fecha futura
     const plantedDate = plantData.plantingDate.toDate();

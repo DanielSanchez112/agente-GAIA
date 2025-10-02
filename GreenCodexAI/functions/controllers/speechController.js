@@ -1,6 +1,7 @@
 const speech = require('@google-cloud/speech');
 const client = new speech.SpeechClient();
 
+// Función para transcribir audio a texto
 const transcribeAudio = async (audioBase64) => {
     try {
         const audio = { content: audioBase64 };

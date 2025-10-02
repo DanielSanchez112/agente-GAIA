@@ -5,8 +5,8 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GRAPH_API_URL = process.env.GRAPH_API_URL;
 
+// Función para enviar un mensaje de texto vía WhatsApp
 const sendMessage = async (to, text) => {
-    // Validar y truncar mensaje si es necesario
     let messageText = text;
     if (messageText.length > 4090) {
         console.log(`⚠️ Mensaje muy largo (${messageText.length} caracteres), truncando...`);
@@ -32,10 +32,11 @@ const sendMessage = async (to, text) => {
         await addMessageToHistory(to, 'model', text);
     } catch (error) {
         console.error("❌ ERROR EN sendMessage (WhatsApp API):", error.response ? error.response.data : error.message);
-        // No lanzamos el error para evitar que el bot intente responder un error sobre un error.
+        
     }
 };
 
+// Función para enviar una imagen vía WhatsApp usando una URL pública
 const sendImageByUrl = async (to, imageUrl, caption) => {
     const url = `${GRAPH_API_URL}/${PHONE_NUMBER_ID}/messages`;
     const data = {
@@ -57,6 +58,7 @@ const sendImageByUrl = async (to, imageUrl, caption) => {
     }
 };
 
+// Función para obtener la URL de una imagen de WhatsApp a partir de su ID
 const getImageUrl = async (imageId) => {
     try {
         const url = `https://graph.facebook.com/v19.0/${imageId}`;
@@ -73,6 +75,7 @@ const getImageUrl = async (imageId) => {
     }
 };
 
+// Función para descargar una imagen desde una URL y convertirla a Base64
 const downloadImageAsBase64 = async (imageUrl) => {
     try {
         const headers = { "Authorization": `Bearer ${WHATSAPP_TOKEN}` };
@@ -89,11 +92,11 @@ const downloadImageAsBase64 = async (imageUrl) => {
     }
 };
 
+// Función para descargar y codificar una imagen de WhatsApp a Base64
 const downloadAndEncodeImage = async (imageId) => {
     try {
         console.log(`Obteniendo detalles de imagen: ${imageId}`);
         
-        // Obtener detalles de la imagen (URL y mimeType)
         const mediaDetails = await getImageUrl(imageId);
         if (!mediaDetails) {
             throw new Error("No se pudieron obtener los detalles de la imagen");
@@ -101,7 +104,6 @@ const downloadAndEncodeImage = async (imageId) => {
         
         console.log(`MimeType detectado: ${mediaDetails.mimeType}`);
         
-        // Descargar imagen
         const base64Image = await downloadImageAsBase64(mediaDetails.url);
         if (!base64Image) {
             throw new Error("No se pudo descargar la imagen");
@@ -120,12 +122,13 @@ const downloadAndEncodeImage = async (imageId) => {
     }
 };
 
+// Función para obtener la URL de un medio (imagen, audio, etc.) a partir de su ID
 const getMediaUrl = async (mediaId) => {
     try {
         const url = `${GRAPH_API_URL}/${mediaId}`;
         const headers = { "Authorization": `Bearer ${WHATSAPP_TOKEN}` };
         const response = await axios.get(url, { headers });
-        // La URL de descarga está en response.data.url
+
         return response.data.url;
     } catch (error) {
         console.error("Error al obtener la URL del medio:", error.response?.data || error.message);
@@ -133,6 +136,7 @@ const getMediaUrl = async (mediaId) => {
     }
 };
 
+// Función para descargar un medio (imagen, audio, etc.) y convertirlo a Base64
 const downloadMediaAsBase64 = async (mediaUrl) => {
     try {
         const headers = { "Authorization": `Bearer ${WHATSAPP_TOKEN}` };

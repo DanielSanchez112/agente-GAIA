@@ -4,6 +4,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 initializeApp();
 const db = getFirestore();
 
+// Agregar una nueva planta al jardín del usuario
 const addUserPlant = async (userId, plantData) => {
     try {
         const userGardenRef = db.collection('gardens').doc(userId);
@@ -14,6 +15,7 @@ const addUserPlant = async (userId, plantData) => {
     }
 };
 
+// Obtener todas las plantas del usuario
 const getUserPlants = async (userId) => {
     try {
         const plantsRef = db.collection('gardens').doc(userId).collection('plants');
@@ -50,17 +52,18 @@ const deleteUserPlant = async (userId, plantName) => {
         const plantToDelete = querySnapshot.docs[0];
         await plantToDelete.ref.delete();
         console.log(`Planta "${plantName}" eliminada para el usuario ${userId}`);
-        return true; // Se eliminó con éxito
+        return true;
 
     } catch (error) {
         console.error("Error al eliminar planta:", error);
-        throw error; // Lanzamos el error para que el flujo lo maneje
+        throw error;
     }
 };
 
+// Consulta para encontrar documentos cuyo nombre empiece con baseName
 const findPlantsByBaseName = async (userId, baseName) => {
     const plantsRef = db.collection('gardens').doc(userId).collection('plants');
-    // Consulta para encontrar documentos cuyo nombre empiece con baseName
+    
     const querySnapshot = await plantsRef
         .where('name', '>=', baseName)
         .where('name', '<', baseName + '\uf8ff')
@@ -73,21 +76,24 @@ const findPlantsByBaseName = async (userId, baseName) => {
     return querySnapshot.docs.map(doc => doc.data().name);
 };
 
+// Guardar o actualizar la ubicación del usuario
 const saveUserLocation = async (userId, city) => {
     // Usamos 'gardens' como la colección principal del usuario para guardar su perfil.
     const userRef = db.collection('gardens').doc(userId);
-    await userRef.set({ location: city }, { merge: true }); // 'merge: true' para no borrar otros datos.
+    await userRef.set({ location: city }, { merge: true }); 
 };
 
+// Obtener la ubicación del usuario
 const getUserLocation = async (userId) => {
     const userRef = db.collection('gardens').doc(userId);
     const doc = await userRef.get();
     return doc.exists && doc.data().location ? doc.data().location : null;
 };
 
+// Obtener una planta específica por su nombre
 const getPlantByName = async (userId, plantName) => {
     const plantsRef = db.collection('gardens').doc(userId).collection('plants');
-    // Hacemos una búsqueda insensible a mayúsculas/minúsculas.
+    
     const snapshot = await plantsRef.where('name', '==', plantName).limit(1).get();
 
     if (snapshot.empty) {
@@ -96,43 +102,47 @@ const getPlantByName = async (userId, plantName) => {
     return snapshot.docs[0].data();
 };
 
+// --- Funciones para Manejar el Estado de la Conversación ---
 const setConversationState = async (userId, state, context = {}) => {
     const stateRef = db.collection('conversations').doc(userId);
     await stateRef.set({ state, context, updatedAt: new Date() });
 };
 
+// Obtener el estado actual de la conversación del usuario
 const getConversationState = async (userId) => {
     const stateRef = db.collection('conversations').doc(userId);
     const doc = await stateRef.get();
     return doc.exists ? doc.data() : null;
 };
 
+// Limpiar el estado de la conversación del usuario
 const clearConversationState = async (userId) => {
     await db.collection('conversations').doc(userId).delete();
 };
 
+// --- Funciones para Manejar el Historial de Mensajes ---
 const addMessageToHistory = async (userId, role, text) => {
     const historyRef = db.collection('gardens').doc(userId).collection('history');
     
-    // 1. Añadimos el nuevo mensaje
+    // Añadimos el nuevo mensaje
     await historyRef.add({
         role,
         text,
         timestamp: new Date()
     });
 
-    // 2. Contamos cuántos mensajes hay ahora
+    // Contamos cuántos mensajes hay ahora
     const snapshot = await historyRef.get();
     const messageCount = snapshot.size;
 
-    // 3. Si hay más de 15, borramos el más antiguo
+    // Si hay más de 15, borramos el más antiguo
     if (messageCount > 15) {
-        // Creamos una consulta para encontrar el mensaje más antiguo (ordenado por fecha, el primero)
+        
         const oldestMessageQuery = historyRef.orderBy('timestamp', 'asc').limit(1);
         const oldestSnapshot = await oldestMessageQuery.get();
 
         if (!oldestSnapshot.empty) {
-            // Obtenemos la referencia al documento más antiguo y lo borramos
+            
             const oldestDoc = oldestSnapshot.docs[0];
             await oldestDoc.ref.delete();
             console.log(`Historial purgado: se eliminó el mensaje más antiguo para el usuario ${userId}`);
@@ -140,6 +150,7 @@ const addMessageToHistory = async (userId, role, text) => {
     }
 };
 
+// Obtener el historial de mensajes del usuario, limitado a los más recientes
 const getConversationHistory = async (userId, limit = 10) => {
     const historyRef = db.collection('gardens').doc(userId).collection('history');
     const snapshot = await historyRef.orderBy('timestamp', 'desc').limit(limit).get();
@@ -148,7 +159,6 @@ const getConversationHistory = async (userId, limit = 10) => {
         return [];
     }
     
-    // Los mensajes se recuperan del más nuevo al más viejo, hay que invertirlos.
     const history = snapshot.docs.map(doc => doc.data());
     return history.reverse();
 };

@@ -3,6 +3,7 @@ const { sendMessage } = require('../services/whatsappService');
 const { getGeminiResponse } = require('../controllers/geminiController');
 const { addMessageToHistory } = require('../controllers/firestoreController');
 
+// Flujo para manejar consultas generales del usuario
 const handle = async (from, userMessage) => {
     try {
         console.log(`💭 Consulta general de ${from}: ${userMessage}`);

@@ -1,6 +1,7 @@
 const { sendMessage } = require('../services/whatsappService');
 const { deleteUserPlant } = require('../controllers/firestoreController');
 
+// Flujo para eliminar una planta del jardín del usuario
 const handle = async (from, userMessage) => {
     const plantName = userMessage.substring(9).trim();
     if (!plantName) {

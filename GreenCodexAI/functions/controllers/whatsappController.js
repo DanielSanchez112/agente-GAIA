@@ -14,7 +14,7 @@ const plantingGuideFlow = require('../flows/plantingGuideFlow');
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
-// --- Verificación del Webhook (Sin Cambios) ---
+// --- Verificación del Webhook ---
 const handleVerification = (req, res) => {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
