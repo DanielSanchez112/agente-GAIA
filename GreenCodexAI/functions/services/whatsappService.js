@@ -2,6 +2,7 @@ const axios = require('axios');
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const GRAPH_API_URL = process.env.GRAPH_API_URL;
 
 const sendMessage = async (to, text) => {
     // Validar y truncar mensaje si es necesario
@@ -95,4 +96,38 @@ const downloadAndEncodeImage = async (imageId) => {
     }
 };
 
-module.exports = { sendMessage, getImageUrl, downloadImageAsBase64, downloadAndEncodeImage };
+const getMediaUrl = async (mediaId) => {
+    try {
+        const url = `${GRAPH_API_URL}/${mediaId}`;
+        const headers = { "Authorization": `Bearer ${WHATSAPP_TOKEN}` };
+        const response = await axios.get(url, { headers });
+        // La URL de descarga está en response.data.url
+        return response.data.url;
+    } catch (error) {
+        console.error("Error al obtener la URL del medio:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+const downloadMediaAsBase64 = async (mediaUrl) => {
+    try {
+        const headers = { "Authorization": `Bearer ${WHATSAPP_TOKEN}` };
+        const response = await axios.get(mediaUrl, {
+            headers,
+            responseType: 'arraybuffer'
+        });
+        return Buffer.from(response.data, 'binary').toString('base64');
+    } catch (error) {
+        console.error("Error al descargar el medio:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+module.exports = {
+    sendMessage,
+    getImageUrl,
+    downloadImageAsBase64,
+    downloadAndEncodeImage,
+    getMediaUrl,          
+    downloadMediaAsBase64
+};

@@ -35,6 +35,29 @@ const getUserPlants = async (userId) => {
     }
 };
 
+const deleteUserPlant = async (userId, plantName) => {
+    try {
+        const plantsRef = db.collection('gardens').doc(userId).collection('plants');
+        // Buscamos una planta cuyo nombre coincida (ignorando mayúsculas/minúsculas)
+        const querySnapshot = await plantsRef.where('name', '==', plantName).limit(1).get();
+
+        if (querySnapshot.empty) {
+            console.log(`Planta "${plantName}" no encontrada para el usuario ${userId}`);
+            return false; // No se encontró la planta
+        }
+
+        // Eliminamos la primera planta que coincida
+        const plantToDelete = querySnapshot.docs[0];
+        await plantToDelete.ref.delete();
+        console.log(`Planta "${plantName}" eliminada para el usuario ${userId}`);
+        return true; // Se eliminó con éxito
+
+    } catch (error) {
+        console.error("Error al eliminar planta:", error);
+        throw error; // Lanzamos el error para que el flujo lo maneje
+    }
+};
+
 const setConversationState = async (userId, state, context = {}) => {
     const stateRef = db.collection('conversations').doc(userId);
     await stateRef.set({ state, context, updatedAt: new Date() });
@@ -55,5 +78,6 @@ module.exports = {
     getUserPlants,
     setConversationState,
     getConversationState,
-    clearConversationState
+    clearConversationState,
+    deleteUserPlant
 };
