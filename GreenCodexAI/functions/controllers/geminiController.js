@@ -13,29 +13,48 @@ const genAI = new GoogleGenAI({
 const MODEL_NAME = 'gemini-2.5-flash';
 
 
-const getGeminiResponse = async (prompt) => {
+// En tu archivo controllers/geminiController.js
+
+// ... (el resto de tus importaciones y configuración de genAI) ...
+
+const getGeminiResponse = async (prompt, history = []) => { // 1. AÑADIMOS 'history = []' a los parámetros
     try {
-        const systemInstruction = "Eres GreenCodexAI, un amigable y experto coach agrícola. Responde de forma clara, concisa y útil para un aficionado a la agricultura. IMPORTANTE: Mantén tus respuestas breves, máximo 3000 caracteres. Sé directo y práctico.";
+        const systemInstruction = 
+        `Eres GreenCodexAI, un amigable y experto coach agrícola. 
+        Responde de forma clara, concisa y útil para un aficionado a la agricultura. 
+        IMPORTANTE: Mantén tus respuestas breves, máximo 3000 caracteres. Sé directo y práctico.`;
         
-        console.log("Enviando prompt a Gemini via Vertex AI...");
+        console.log("Enviando prompt a Gemini con historial...");
         
-        const response = await genAI.models.generateContent({
-            model: MODEL_NAME,
-            contents: [{
-                role: 'user',
-                parts: [{
-                    text: `${systemInstruction}\n\nPregunta del usuario: ${prompt}\n\nResponde de forma breve y práctica (máximo 3000 caracteres).`
-                }]
-            }]
+        // Construimos el historial para la API de Gemini
+        const contents = history
+            .filter(msg => msg && msg.role && msg.text) // Filtro de seguridad
+            .map(msg => ({
+                role: msg.role,
+                parts: [{ text: msg.text }]
+            }));
+
+        // Añadimos la instrucción y el prompt actual del usuario
+        contents.push({
+            role: 'user',
+            parts: [{ text: `${systemInstruction}\n\nPregunta del usuario: ${prompt}` }]
         });
 
-        if (!response || !response.text) {
+        const result = await genAI.models.generateContent({
+            model: modelName,
+            contents: contents
+        });
+
+        const response = await result.response;
+        // 2. SIMPLIFICAMOS la validación de la respuesta
+        if (!response) {
             throw new Error("La respuesta de Gemini está vacía o es inválida.");
         }
         
-        let aiText = response.text;
+        // 3. CAMBIAMOS 'const' por 'let'
+        let aiText = response.text();
         
-        // Validar longitud y truncar si es necesario
+        // Tu lógica para truncar ahora funcionará correctamente
         if (aiText.length > 4000) {
             console.log(`⚠️ Respuesta muy larga (${aiText.length} caracteres), truncando...`);
             aiText = aiText.substring(0, 3900) + "\n\n... [Respuesta truncada por longitud]";
@@ -50,6 +69,7 @@ const getGeminiResponse = async (prompt) => {
     }
 };
 
+// ... (el resto de tus funciones y exportaciones) ...
 const identifyPlant = async (imageBase64, mimeType = 'image/jpeg') => {
     try {
         console.log(`Identificando planta en imagen con mimeType: ${mimeType}`);

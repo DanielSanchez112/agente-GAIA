@@ -1,5 +1,5 @@
 // --- Importaciones ---
-const { getConversationState, clearConversationState, saveUserLocation } = require('./firestoreController');
+const { getConversationState, clearConversationState, saveUserLocation, addMessageToHistory } = require('./firestoreController');
 const { identifyPlant } = require('./geminiController');
 const { sendMessage, downloadAndEncodeImage, getMediaUrl, downloadMediaAsBase64 } = require('../services/whatsappService');
 const { transcribeAudio } = require('./speechController');
@@ -55,6 +55,8 @@ const handleMessage = async (req, res) => {
 const processTextMessage = async (from, userMessage) => {
     console.log(`💬 Texto recibido: ${userMessage}`);
     const currentState = await getConversationState(from);
+
+    await addMessageToHistory(from, 'user', userMessage);
 
     if (currentState) {
         if (userMessage.toLowerCase() === 'cancelar') {
@@ -125,6 +127,9 @@ const processLocationMessage = async (from, location) => {
 // --- Función para Procesar Mensajes de IMAGEN ---
 const processImageMessage = async (from, imageId) => {
     console.log(`📸 Imagen recibida`);
+
+    await addMessageToHistory(from, 'user', userMessage);
+
     try {
         await sendMessage(from, "🔍 Analizando tu imagen...");
         const imageData = await downloadAndEncodeImage(imageId);
@@ -143,6 +148,9 @@ const processImageMessage = async (from, imageId) => {
 // --- Función para Procesar Mensajes de AUDIO ---
 const processAudioMessage = async (from, audioId) => {
     console.log(`🎙️ Audio recibido`);
+
+    await addMessageToHistory(from, 'user', userMessage);
+
     try {
         await sendMessage(from, "🎙️ Transcribiendo tu nota de voz...");
         const mediaUrl = await getMediaUrl(audioId);

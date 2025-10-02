@@ -21,8 +21,7 @@ Elimina una planta de tu jardín.
 _Ejemplo: eliminar tomate cherry 2_
 
 *como plantar [nombre de la planta]*
-Te proporcionaré una guía rápida sobre cómo plantar esa especie
-junto con una imagen de referencia.
+Te proporcionaré una guía rápida sobre cómo plantar esa especie.
 _Ejemplo: como plantar girasol_
 
 *🔬 HERRAMIENTAS DE ANÁLISIS*

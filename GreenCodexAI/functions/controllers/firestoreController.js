@@ -111,6 +111,48 @@ const clearConversationState = async (userId) => {
     await db.collection('conversations').doc(userId).delete();
 };
 
+const addMessageToHistory = async (userId, role, text) => {
+    const historyRef = db.collection('gardens').doc(userId).collection('history');
+    
+    // 1. Añadimos el nuevo mensaje
+    await historyRef.add({
+        role,
+        text,
+        timestamp: new Date()
+    });
+
+    // 2. Contamos cuántos mensajes hay ahora
+    const snapshot = await historyRef.get();
+    const messageCount = snapshot.size;
+
+    // 3. Si hay más de 50, borramos el más antiguo
+    if (messageCount > 50) {
+        // Creamos una consulta para encontrar el mensaje más antiguo (ordenado por fecha, el primero)
+        const oldestMessageQuery = historyRef.orderBy('timestamp', 'asc').limit(1);
+        const oldestSnapshot = await oldestMessageQuery.get();
+
+        if (!oldestSnapshot.empty) {
+            // Obtenemos la referencia al documento más antiguo y lo borramos
+            const oldestDoc = oldestSnapshot.docs[0];
+            await oldestDoc.ref.delete();
+            console.log(`Historial purgado: se eliminó el mensaje más antiguo para el usuario ${userId}`);
+        }
+    }
+};
+
+const getConversationHistory = async (userId, limit = 10) => {
+    const historyRef = db.collection('gardens').doc(userId).collection('history');
+    const snapshot = await historyRef.orderBy('timestamp', 'desc').limit(limit).get();
+    
+    if (snapshot.empty) {
+        return [];
+    }
+    
+    // Los mensajes se recuperan del más nuevo al más viejo, hay que invertirlos.
+    const history = snapshot.docs.map(doc => doc.data());
+    return history.reverse();
+};
+
 module.exports = {
     addUserPlant,
     getUserPlants,
@@ -121,5 +163,7 @@ module.exports = {
     saveUserLocation,
     getUserLocation,
     getPlantByName,
-    findPlantsByBaseName
+    findPlantsByBaseName,
+    addMessageToHistory,
+    getConversationHistory
 };

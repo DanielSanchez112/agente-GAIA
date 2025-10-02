@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { addMessageToHistory } = require('../controllers/firestoreController');
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
@@ -27,6 +28,8 @@ const sendMessage = async (to, text) => {
         console.log(`📤 Enviando mensaje a ${to} (${messageText.length} caracteres)...`);
         await axios.post(url, data, { headers });
         console.log("✅ Mensaje de WhatsApp enviado.");
+
+        await addMessageToHistory(to, 'model', text);
     } catch (error) {
         console.error("❌ ERROR EN sendMessage (WhatsApp API):", error.response ? error.response.data : error.message);
         // No lanzamos el error para evitar que el bot intente responder un error sobre un error.
