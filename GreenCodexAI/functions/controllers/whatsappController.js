@@ -42,7 +42,7 @@ const handleMessage = async (req, res) => {
             await processAudioMessage(from, message.audio.id);
         } else if (message.image) {
             await processImageMessage(from, message.image.id);
-        } else if (message.location) {
+        } else if (message.type === 'location') {
             await processLocationMessage(from, message.location);
         }
     } catch (error) {
@@ -56,6 +56,7 @@ const handleMessage = async (req, res) => {
 const processTextMessage = async (from, userMessage) => {
     console.log(`💬 Texto recibido: ${userMessage}`);
     const currentState = await getConversationState(from);
+    //const currentState = null;
 
     await addMessageToHistory(from, 'user', userMessage);
 
@@ -93,7 +94,7 @@ const processTextMessage = async (from, userMessage) => {
 
 // --- Función para Procesar Mensajes de UBICACIÓN ---
 const processLocationMessage = async (from, location) => {
-    console.log(`📍 Ubicación recibida de ${from}`);
+    console.log(`📍 Ubicación recibida de ${from}, ${JSON.stringify(location)}`);
     const currentState = await getConversationState(from);
 
     if (currentState) {
@@ -101,24 +102,27 @@ const processLocationMessage = async (from, location) => {
         if (currentState.state === 'AWAITING_LOCATION_FOR_CALENDAR') {
             const { latitude, longitude } = location;
             // Reutilizamos la función que convierte coordenadas a ciudad del calendarFlow
-            const city = await calendarFlow.getCityFromCoordinates(latitude, longitude);
+            const cityData = await calendarFlow.getCityFromCoordinates(latitude, longitude);
             
-            await saveUserLocation(from, city);
+            const locationData = { cityData, lat: latitude, lon: longitude };
+            await saveUserLocation(from, locationData);
             await clearConversationState(from);
             
-            await sendMessage(from, `✅ Ubicación guardada como: ${city}.`);
+            await sendMessage(from, `✅ Ubicación guardada como: ${locationData.cityData}.`);
             // Continuamos con el flujo del calendario
             await calendarFlow.start(from, `calendario ${currentState.context.plantName}`);
 
         // Si la estábamos esperando para actualizarla...
         } else if (currentState.state === 'AWAITING_NEW_LOCATION') {
             const { latitude, longitude } = location;
-            const city = await calendarFlow.getCityFromCoordinates(latitude, longitude);
-            
-            await saveUserLocation(from, city);
+
+            const cityData = await calendarFlow.getCityFromCoordinates(latitude, longitude);
+            const locationData = { cityData, lat: latitude, lon: longitude };
+
+            await saveUserLocation(from, locationData);
             await clearConversationState(from);
-            
-            await sendMessage(from, `✅ ¡Perfecto! He actualizado tu ubicación a: *${city}*`);
+
+            await sendMessage(from, `✅ ¡Perfecto! He actualizado tu ubicación a: *${locationData.cityData}*`);
         }
     } else {
         await sendMessage(from, "Gracias por tu ubicación, pero no estaba esperando una en este momento.");

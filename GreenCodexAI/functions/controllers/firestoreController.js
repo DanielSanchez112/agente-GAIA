@@ -77,10 +77,10 @@ const findPlantsByBaseName = async (userId, baseName) => {
 };
 
 // Guardar o actualizar la ubicación del usuario
-const saveUserLocation = async (userId, city) => {
-    // Usamos 'gardens' como la colección principal del usuario para guardar su perfil.
+const saveUserLocation = async (userId, locationData) => {
     const userRef = db.collection('gardens').doc(userId);
-    await userRef.set({ location: city }, { merge: true }); 
+    // Ahora guardamos un objeto con ciudad, latitud y longitud
+    await userRef.set({ location: locationData }, { merge: true });
 };
 
 // Obtener la ubicación del usuario
@@ -112,7 +112,7 @@ const setConversationState = async (userId, state, context = {}) => {
 const getConversationState = async (userId) => {
     const stateRef = db.collection('conversations').doc(userId);
     const doc = await stateRef.get();
-    return doc.exists ? doc.data() : null;
+    return doc.exists ? doc.data() : false;
 };
 
 // Limpiar el estado de la conversación del usuario

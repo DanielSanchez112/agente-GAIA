@@ -1,7 +1,8 @@
 const { sendMessage } = require('../services/whatsappService');
-const { getPlantByName, getUserLocation, saveUserLocation } = require('../controllers/firestoreController');
-const { getGeminiResponse } = require('../controllers/geminiController');
-const { getFirestore } = require('firebase-admin/firestore'); // Importar para getFirestore
+const { getPlantByName, getUserLocation } = require('../controllers/firestoreController');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getGeminiResponse, getGeminiResponseWithTools } = require('../controllers/geminiController');
+
 
 // Función para obtener el clima (simulada, una mejora futura sería usar una API real)
 const getWeather = async (city) => {
@@ -12,7 +13,12 @@ const getWeather = async (city) => {
 
 // Función para obtener la ciudad desde coordenadas (simulada)
 const getCityFromCoordinates = async (latitude, longitude) => {
-    const prompt = `¿Qué ciudad se encuentra en las coordenadas latitud ${latitude} y longitud ${longitude}? Responde solo con el nombre de la ciudad y el estado/país.`;
+    const prompt = `
+    ¿Qué ciudad se encuentra en las coordenadas latitud ${latitude} y longitud ${longitude}? 
+    Importante: responde solo con el nombre de la ciudad y el estado/país
+    ejemplo: "Madrid, España".`;
+
+    console.log(`Obteniendo ciudad para coordenadas: (${latitude}, ${longitude})`);
     return await getGeminiResponse(prompt);
 };
 
@@ -71,29 +77,64 @@ const generateCalendar = async (from, plantData, location) => {
 Como aún no ha sido plantada, no puedo revisar un calendario de crecimiento. ¡Regresa después de plantarla! 🌱`);
         return;
     }
+    
+    await sendMessage(from, `🗓️ Revisando calendario para tu *${plantData.name}* en *${location.cityData}*...`);
 
-    await sendMessage(from, `🗓️ Revisando calendario para tu *${plantData.name}* en *${location}*...`);
-
-    const weather = await getWeather(location);
     const daysPlanted = Math.floor((today - plantedDate) / (1000 * 60 * 60 * 24));
 
-    const prompt = `
-        Para una planta de "${plantData.name}" sembrada hace ${daysPlanted} días en ${location}, donde el clima actual es "${weather}":
-        1. ¿Cuál es su tiempo total de crecimiento aproximado en días desde la siembra hasta la cosecha/floración?
-        2. ¿En qué etapa de crecimiento (germinación, crecimiento vegetativo, floración, etc.) debería estar ahora?
-        3. ¿Cuántos días le faltan aproximadamente para la cosecha o para que florezca?
-        4. Dame un consejo clave para esta semana basado en su etapa y el clima actual.
-        Responde de forma concisa y amigable.
-    `;
+    try {
+        // Verificar que tenemos coordenadas
+        if (!location.lat || !location.lon) {
+            throw new Error("No hay coordenadas disponibles");
+        }
 
-    const aiResponse = await getGeminiResponse(prompt);
-    const finalMessage = `📅 **Calendario para tu ${plantData.name}** 📅\n\n` +
-                       `*Ubicación:* ${location}\n` +
-                       `*Clima actual:* ${weather}\n` +
-                       `*Días desde siembra:* ${daysPlanted} días\n\n` +
-                       `${aiResponse}`;
+        console.log(`🌍 Usando coordenadas: ${location.lat}, ${location.lon}`);
 
-    await sendMessage(from, finalMessage);
+        const prompt = `
+            Para una planta de "${plantData.name}" sembrada hace ${daysPlanted} días en ${location.cityData}:
+            
+            1. ¿Cuál es su tiempo total de crecimiento aproximado en días desde la siembra hasta la cosecha/floración?
+            2. ¿En qué etapa de crecimiento (germinación, crecimiento vegetativo, floración, etc.) debería estar ahora?
+            3. ¿Cuántos días le faltan aproximadamente para la cosecha o para que florezca?
+            4. Dame un consejo clave para esta semana basado en su etapa y el clima actual.
+            
+            Responde de forma concisa y amigable (máximo 1500 caracteres).
+        `;
+
+        // Usar la nueva función que incluye datos del clima
+        const aiResponse = await getGeminiResponseWithTools(prompt, location.lat, location.lon);
+        
+        const finalMessage = `📅 **Calendario para tu ${plantData.name}** 📅\n\n` +
+                           `*Ubicación:* ${location.cityData}\n` +
+                           `*Días desde siembra:* ${daysPlanted} días\n\n` +
+                           `${aiResponse}`;
+        
+        await sendMessage(from, finalMessage);
+        
+    } catch (error) {
+        console.error("❌ Error generando calendario:", error);
+        
+        // Fallback: usar el método simple sin herramientas
+        console.log("🔄 Usando método de respaldo...");
+        const weather = await getWeather(location.cityData);
+        const simplePrompt = `
+            Para una planta de "${plantData.name}" sembrada hace ${daysPlanted} días en ${location.cityData}, donde el clima actual es "${weather}":
+            1. ¿Cuál es su tiempo total de crecimiento aproximado en días desde la siembra hasta la cosecha/floración?
+            2. ¿En qué etapa de crecimiento debería estar ahora?
+            3. ¿Cuántos días le faltan aproximadamente para la cosecha?
+            4. Dame un consejo clave para esta semana.
+            Responde de forma concisa.
+        `;
+        
+        const aiResponse = await getGeminiResponse(simplePrompt);
+        const fallbackMessage = `📅 **Calendario para tu ${plantData.name}** 📅\n\n` +
+                               `*Ubicación:* ${location.cityData}\n` +
+                               `*Clima actual:* ${weather}\n` +
+                               `*Días desde siembra:* ${daysPlanted} días\n\n` +
+                               `${aiResponse}`;
+        
+        await sendMessage(from, fallbackMessage);
+    }
 };
 
 module.exports = { start, generateCalendar, getCityFromCoordinates };

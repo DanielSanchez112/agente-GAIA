@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
+const { getConversationHistory } = require('./firestoreController');
 
 const GOOGLE_CLOUD_PROJECT = process.env.GCLOUD_PROJECT;
 const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
@@ -72,7 +73,6 @@ const getGeminiResponse = async (prompt, userId = null) => {
         }
 
         // Si hay userId, obtener historial y usar contexto
-        const { getConversationHistory } = require('./firestoreController');
         const history = await getConversationHistory(userId, 10);
         
         console.log(`📚 Historial obtenido: ${history.length} mensajes`);
@@ -171,4 +171,90 @@ const identifyPlant = async (imageBase64, mimeType = 'image/jpeg') => {
     }
 };
 
-module.exports = { getGeminiResponse, identifyPlant };
+const tools = [{
+    functionDeclaration: {
+        name: "getWeatherData",
+        description: "Obtiene datos meteorológicos actuales para una ubicación dada.",
+        parameters: {
+            type: "object",
+            properties: {
+                latitude: {
+                    type: "number",
+                    description: "Latitud de la ubicación."
+                },
+                longitude: {
+                    type: "number",
+                    description: "Longitud de la ubicación."
+                }
+            },
+            required: ["latitude", "longitude"]
+        }
+    }
+}];
+
+// Función para usar herramientas con Gemini
+const getGeminiResponseWithTools = async (prompt, latitude, longitude) => {
+    try {
+        console.log(`🔧 Usando herramientas con coordenadas: ${latitude}, ${longitude}`);
+        
+        const systemInstruction = 
+        `Eres GreenCodexAI, un amigable y experto coach agrícola. 
+        Responde de forma clara, concisa y útil para un aficionado a la agricultura. 
+        IMPORTANTE: Mantén tus respuestas breves, máximo 3000 caracteres. Sé directo y práctico.`;
+
+        // Primero, llamamos a la herramienta del clima manualmente
+        const { availableTools } = require('../services/tools');
+        let weatherData = null;
+        
+        try {
+            weatherData = await availableTools.getWeatherData({ latitude, longitude });
+            console.log(`🌤️ Datos del clima obtenidos:`, weatherData);
+        } catch (weatherError) {
+            console.error("❌ Error obteniendo clima:", weatherError);
+            weatherData = { temperature: "Desconocida", condition: "No disponible" };
+        }
+
+        // Luego, enviamos el prompt con los datos del clima incluidos
+        const enhancedPrompt = `${systemInstruction}
+
+Datos del clima actual:
+- Temperatura: ${weatherData.temperature}°C
+- Condición: ${weatherData.condition}
+- Ubicación: ${weatherData.location || 'No disponible'}
+
+${prompt}
+
+Usa esta información del clima para dar consejos más precisos.`;
+
+        const response = await genAI.models.generateContent({
+            model: MODEL_NAME,
+            contents: [{
+                role: 'user',
+                parts: [{
+                    text: enhancedPrompt
+                }]
+            }]
+        });
+
+        if (!response || !response.text) {
+            throw new Error("La respuesta de Gemini está vacía o es inválida.");
+        }
+        
+        let aiText = response.text;
+        
+        // Validar longitud y truncar si es necesario
+        if (aiText.length > 4000) {
+            console.log(`⚠️ Respuesta muy larga (${aiText.length} caracteres), truncando...`);
+            aiText = aiText.substring(0, 3900) + "\n\n... [Respuesta truncada por longitud]";
+        }
+        
+        console.log(`✅ Respuesta con clima recibida (${aiText.length} caracteres)`);
+        return aiText;
+
+    } catch (error) {
+        console.error("--- ERROR EN getGeminiResponseWithTools ---", error);
+        throw new Error("Fallo al generar contenido con herramientas: " + error.message);
+    }
+};
+
+module.exports = { getGeminiResponse, identifyPlant, getGeminiResponseWithTools, tools };
